@@ -93,6 +93,7 @@ class EditorScene(Scene):
         try:
             self.game.audio.play(self.info.audio_path)
         except pygame.error as exc:
+            self.game.audio.stop()   # release any handle taken by load()
             self.game.levels.delete(self.info)
             self.info = None
             self.status = f"Audio error: {exc}"
@@ -137,10 +138,12 @@ class EditorScene(Scene):
         self._back()
 
     def _cancel(self) -> None:
+        # stop first: the loaded music file is locked on Windows and the
+        # delete below would silently fail, leaving the audio behind
+        self.game.audio.stop()
         if self.info is not None:
             self.game.levels.delete(self.info)
             self.info = None
-        self.game.audio.stop()
         self._back()
 
     def _place(self, lane: int, boost: bool) -> None:

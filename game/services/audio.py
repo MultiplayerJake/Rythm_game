@@ -47,6 +47,12 @@ class AudioEngine:
             pygame.mixer.music.stop()
         except pygame.error:
             pass
+        try:
+            # release the file handle: Windows keeps the music file locked
+            # while SDL_mixer holds it, which makes delete/move fail
+            pygame.mixer.music.unload()
+        except pygame.error:
+            pass
         self._start_perf = None
         self._ended = False
 

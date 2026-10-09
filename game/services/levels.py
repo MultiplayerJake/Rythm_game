@@ -161,7 +161,12 @@ class LevelLibrary:
         info = LevelInfo(name=name, json_path=self.json_path(name),
                          audio_path=os.path.join(self.root, audio_name),
                          notes=[], valid=True)
-        self.write(info)
+        try:
+            self.write(info)
+        except OSError:
+            # never leave a copied audio file without its chart
+            self.delete(info)
+            raise
         return info
 
     def write(self, info: LevelInfo) -> None:
@@ -183,8 +188,12 @@ class LevelLibrary:
     def delete(self, info: LevelInfo) -> None:
         """Remove a level's chart and audio (used when recording is cancelled)."""
         for path in (info.json_path, info.audio_path):
-            if path:
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
+            if not path:
+                continue
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                # e.g. the audio file is still locked by the audio device
+                print(f"[levels] could not remove {path}: {exc}")
