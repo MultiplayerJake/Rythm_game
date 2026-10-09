@@ -9,7 +9,8 @@ from . import theme
 
 class Button:
     """Clickable button. ``kind`` is 'normal' or 'primary'; ``skew`` adds the
-    Fortnite-style parallelogram slant (0 = straight)."""
+    Fortnite-style parallelogram slant (0 = straight). Every button shares
+    the same flat CREATE-style look; hover only adds the border."""
 
     def __init__(self, rect, label, on_click=None, size=22, kind="normal",
                  skew=0, enabled=True):
@@ -43,29 +44,40 @@ class Button:
         return False
 
     def draw(self, surface, hover=None, selected=False):
-        """``hover`` forces the hover highlight (mouse hover drives it
-        otherwise); ``selected`` only brightens the fill.
+        """Uniform CREATE-style button: dark tile + plain label.
 
-        The cyan border appears *only* while hovered - idle and merely
-        keyboard-selected buttons are borderless."""
+        Hovering with the mouse (``hover`` / ``self.hovered``) or having
+        keyboard focus (``selected``) only adds the cyan border - the
+        label keeps the same font and never gets a glow/outline.
+        """
         hovered = self.hovered if hover is None else hover
-        primary = self.kind == "primary"
-        border = theme.CYAN if hovered else None
-        fill = theme.PANEL_LIGHT if (hovered or primary or selected) else theme.PANEL
-        if not self.enabled:
-            border, fill = theme.BORDER, theme.PANEL
+        active = (hovered or selected) and self.enabled
+        fill = theme.PANEL
+        if active:
+            border = theme.CYAN
+        elif not self.enabled:
+            border = theme.BORDER
+        else:
+            border = None
 
         poly = self._poly()
         if poly:
             pygame.draw.polygon(surface, fill, poly)
+            # holographic top-edge light
+            top = [poly[0], poly[1],
+                   ((poly[1][0] + poly[2][0]) // 2, poly[1][1] + 3),
+                   ((poly[0][0] + poly[3][0]) // 2, poly[0][1] + 3)]
+            pygame.draw.polygon(surface, theme.lerp(fill, theme.WHITE, 0.22),
+                                top)
             if border:
                 pygame.draw.polygon(surface, border, poly, 2)
         else:
             theme.panel(surface, self.rect, fill=fill, border=border)
 
         color = theme.WHITE if self.enabled else theme.DIM
-        img = theme.font(self.size).render(self.label, True, color)
-        surface.blit(img, img.get_rect(center=self.rect.center))
+        theme.draw_text(surface, self.label, self.rect.centerx,
+                        self.rect.centery - self.size // 2 - 3,
+                        size=self.size, color=color, align="center")
 
 
 class IconButton:
@@ -88,10 +100,11 @@ class IconButton:
         return False
 
     def draw(self, surface):
-        color = theme.MAGENTA if self.hovered else theme.DIM
+        border = theme.CYAN if self.hovered else theme.BORDER
         theme.panel(surface, self.rect, fill=theme.PANEL,
-                    border=color, radius=6, width=2)
+                    border=border, radius=6, width=2)
         # trash can: lid + body + lines
+        color = theme.DIM
         r = self.rect
         cx, top = r.centerx, r.centery - 6
         pygame.draw.rect(surface, color, (cx - 7, top - 5, 14, 4), border_radius=1)

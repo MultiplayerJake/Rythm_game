@@ -20,6 +20,11 @@ HEAD_H, HEAD_GAP = 30, 6
 KEY_W = 150
 SCROLL_STEP = 56
 
+# non-keybind controls rendered above the keybind groups
+VISUAL_ROWS = (("slider", "volume", "MUSIC VOLUME"),
+               ("toggle", "scanlines", "SCANLINES"),
+               ("toggle", "particles", "PARTICLES"))
+
 
 class SettingsScene(Scene):
     def __init__(self, game):
@@ -27,6 +32,7 @@ class SettingsScene(Scene):
         self.waiting = None        # action name waiting for a key, else None
         self.focus = 0             # index into self.actions
         self.hover = None          # action name under the mouse
+        self.hover_entry = None    # full entry under the mouse
         self.scroll = 0.0
         self._layout()
 
@@ -35,10 +41,21 @@ class SettingsScene(Scene):
 
     # ------------------------------------------------------------- layout
     def _layout(self) -> None:
-        """Build content-space rows: group headers + one row per action."""
-        self.entries = []          # {"kind", "title"/"action", "y", "h"}
+        """Build content-space rows: audio/visual controls + keybinds."""
+        self.entries = []          # {"kind", "y", "h", ...}
         self.actions = []          # bindable action names, display order
+        self.dragging = None       # slider id while the mouse is held
         y = 0
+
+        self.entries.append({"kind": "head", "title": "AUDIO & VISUALS",
+                             "y": y, "h": HEAD_H})
+        y += HEAD_H + HEAD_GAP
+        for kind, ident, label in VISUAL_ROWS:
+            self.entries.append({"kind": kind, "id": ident, "label": label,
+                                 "y": y, "h": ROW_H})
+            y += ROW_H + ROW_GAP
+        y += 10
+
         for title, actions in GROUPS:
             self.entries.append({"kind": "head", "title": title,
                                  "y": y, "h": HEAD_H})
@@ -98,17 +115,34 @@ class SettingsScene(Scene):
             return
 
         if event.type == pygame.MOUSEMOTION:
-            self.hover = self._action_at(event.pos)
+            if self.dragging:
+                self._drag_volume(event.pos[0])
+            entry = self._entry_at(event.pos)
+            self.hover_entry = entry
+            self.hover = entry.get("action") if entry else None
+            return
+
+        if event.type == pygame.MOUSEBUTTONUP:
+            self.dragging = None
             return
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.back.handle_event(event):
                 return
-            action = self._action_at(event.pos)
-            if action is None:
+            entry = self._entry_at(event.pos)
+            if entry is None:
                 return
-            rect = self._row_rect(action)
+            if entry["kind"] == "slider":
+                self.dragging = "volume"
+                self._drag_volume(event.pos[0])
+                return
+            if entry["kind"] == "toggle":
+                self._toggle(entry["id"])
+                return
+
+            rect = self._screen_rect(entry)
             key_rect, trash_rect = self._controls(rect)
+            action = entry["action"]
             if trash_rect.collidepoint(event.pos):
                 cfg.clear_key(action)
             elif key_rect.collidepoint(event.pos):
@@ -137,13 +171,39 @@ class SettingsScene(Scene):
                 return entry
         return self.entries[0]
 
-    def _action_at(self, pos) -> str | None:
+    def _entry_at(self, pos) -> dict | None:
         for entry in self.entries:
-            if entry["kind"] != "row":
+            if entry["kind"] == "head":
                 continue
             if self._screen_rect(entry).collidepoint(pos):
-                return entry["action"]
+                return entry
         return None
+
+    def _action_at(self, pos) -> str | None:
+        entry = self._entry_at(pos)
+        return entry.get("action") if entry else None
+
+    # ------------------------------------------------------- audio / fx
+    def _slider_rect(self, entry) -> pygame.Rect:
+        row = self._screen_rect(entry)
+        return pygame.Rect(row.x + 330, row.y + 12, row.w - 470, ROW_H - 24)
+
+    def _drag_volume(self, x: float) -> None:
+        entry = next(e for e in self.entries if e.get("id") == "volume")
+        track = self._slider_rect(entry)
+        frac = (x - track.x) / max(track.w, 1)
+        value = max(0.0, min(1.0, frac))
+        self.game.config.volume = value
+        self.game.config.save()
+        self.game.audio.set_volume(value)
+
+    def _toggle(self, ident: str) -> None:
+        cfg = self.game.config
+        if ident == "scanlines":
+            cfg.scanlines = not cfg.scanlines
+        elif ident == "particles":
+            cfg.particles = not cfg.particles
+        cfg.save()
 
     def _row_rect(self, action: str) -> pygame.Rect:
         return self._screen_rect(self._entry(action))
@@ -173,9 +233,14 @@ class SettingsScene(Scene):
                 theme.draw_text(surface, entry["title"], VIEW.x + 4, y + 4,
                                 size=16, color=theme.MAGENTA)
                 pygame.draw.line(surface, theme.BORDER,
-                                 (VIEW.x + 110, y + 14), (VIEW.right - 24, y + 14))
+                                 (VIEW.x + 200, y + 14), (VIEW.right - 24, y + 14))
                 continue
-            self._draw_row(surface, entry, y, cfg)
+            if entry["kind"] == "row":
+                self._draw_row(surface, entry, y, cfg)
+            elif entry["kind"] == "slider":
+                self._draw_slider(surface, entry, y, cfg)
+            elif entry["kind"] == "toggle":
+                self._draw_toggle(surface, entry, y, cfg)
         surface.set_clip(prev)
 
         self._draw_scrollbar(surface)
@@ -199,22 +264,27 @@ class SettingsScene(Scene):
                         theme.BASE_W // 2, VIEW.bottom + 40, 16,
                         color=theme.DIM, align="center")
 
+    def _tile(self, surface, rect, hovered, waiting=False) -> None:
+        """CREATE-style row tile: dark fill, border only when hovered/focused."""
+        if waiting:
+            fill, border = theme.PANEL_LIGHT, theme.YELLOW
+        elif hovered:
+            fill, border = theme.PANEL, theme.CYAN
+        else:
+            fill, border = theme.PANEL, None
+        theme.panel(surface, rect, fill=fill, border=border, radius=6)
+
     def _draw_row(self, surface, entry, y: int, cfg) -> None:
         action = entry["action"]
         row = pygame.Rect(VIEW.x, y, VIEW.w - 18, ROW_H)
-        active = (action == self.focus_action()
-                  or action == self.hover or action == self.waiting)
-        fill = theme.PANEL_LIGHT if active else theme.PANEL
-        border = theme.CYAN if action == self.waiting else theme.BORDER
-        theme.panel(surface, row, fill=fill, border=border, radius=6)
-        if action == self.focus_action():
-            pygame.draw.rect(surface, theme.CYAN, row, 1, border_radius=6)
+        waiting = action == self.waiting
+        hovered = action == self.focus_action() or action == self.hover
+        self._tile(surface, row, hovered, waiting=waiting)
 
         theme.draw_text(surface, LABELS.get(action, action), row.x + 16,
                         row.y + 12, size=20, color=theme.TEXT)
 
         key_rect, trash_rect = self._controls(row)
-        waiting = action == self.waiting
         key_fill = theme.PANEL_LIGHT if waiting else theme.PANEL
         theme.panel(surface, key_rect, fill=key_fill,
                     border=theme.YELLOW if waiting else theme.BORDER,
@@ -228,6 +298,43 @@ class SettingsScene(Scene):
         tb = IconButton(trash_rect, lambda: None)
         tb.hovered = self.hover == action
         tb.draw(surface)
+
+    def _draw_slider(self, surface, entry, y: int, cfg) -> None:
+        row = pygame.Rect(VIEW.x, y, VIEW.w - 18, ROW_H)
+        self._tile(surface, row, self.hover_entry is entry)
+        theme.draw_text(surface, entry["label"], row.x + 16, row.y + 12,
+                        size=20, color=theme.TEXT)
+
+        track = self._slider_rect(entry)
+        bar = pygame.Rect(track.x, track.centery - 4, track.w, 8)
+        theme.alpha_rect(surface, bar, theme.BORDER, 242, radius=4)
+        frac = max(0.0, min(1.0, cfg.volume))
+        fill_w = int(track.w * frac)
+        if fill_w > 0:
+            theme.alpha_rect(surface, pygame.Rect(track.x, bar.y, fill_w, 8),
+                             theme.CYAN, 255, radius=4)
+        pygame.draw.circle(surface, theme.WHITE,
+                           (track.x + fill_w, track.centery), 8)
+        theme.draw_text(surface, f"{round(frac * 100)}%", row.right - 16,
+                        row.y + 11, size=17, color=theme.CYAN, align="right")
+
+    def _draw_toggle(self, surface, entry, y: int, cfg) -> None:
+        row = pygame.Rect(VIEW.x, y, VIEW.w - 18, ROW_H)
+        self._tile(surface, row, self.hover_entry is entry)
+        theme.draw_text(surface, entry["label"], row.x + 16, row.y + 12,
+                        size=20, color=theme.TEXT)
+
+        on = cfg.scanlines if entry["id"] == "scanlines" else cfg.particles
+        pill = pygame.Rect(row.right - 96, row.y + 11, 76, ROW_H - 22)
+        theme.alpha_rect(surface, pill, theme.CYAN if on else theme.BORDER,
+                         242, radius=pill.h // 2)
+        knob_r = 9
+        kx = pill.right - knob_r - 4 if on else pill.x + knob_r + 4
+        pygame.draw.circle(surface, theme.WHITE if on else theme.LAVENDER,
+                           (kx, pill.centery), knob_r)
+        theme.draw_text(surface, "ON" if on else "OFF", pill.x - 14,
+                        row.y + 12, size=16,
+                        color=theme.CYAN if on else theme.DIM, align="right")
 
     def focus_action(self) -> str:
         return self.actions[self.focus] if self.actions else ""

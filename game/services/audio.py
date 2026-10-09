@@ -22,9 +22,19 @@ class AudioEngine:
         self._ended = False
         self._frozen = 0.0
         self.path: str | None = None
+        self.volume: float = 1.0
+
+    def set_volume(self, volume: float) -> None:
+        """Master music volume, 0.0 - 1.0."""
+        self.volume = max(0.0, min(1.0, float(volume)))
+        try:
+            pygame.mixer.music.set_volume(self.volume)
+        except pygame.error:
+            pass
 
     def play(self, path: str) -> None:
         pygame.mixer.music.load(path)
+        pygame.mixer.music.set_volume(self.volume)
         pygame.mixer.music.play()
         self.path = path
         self._start_perf = time.perf_counter()

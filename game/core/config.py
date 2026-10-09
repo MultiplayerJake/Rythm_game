@@ -65,6 +65,9 @@ class Config:
     def __init__(self, path: str = SETTINGS_PATH):
         self.path = path
         self.keys: dict[str, str | None] = dict(DEFAULT_KEYS)
+        self.volume: float = 0.8          # music volume 0.0 - 1.0
+        self.scanlines: bool = True       # CRT scanline overlay
+        self.particles: bool = True       # backdrop motes + hit particles
         self.load()
 
     # ------------------------------------------------------------------ io
@@ -76,7 +79,20 @@ class Config:
             self.keys = dict(DEFAULT_KEYS)
             return
 
-        raw = data.get("keys") if isinstance(data, dict) else None
+        if not isinstance(data, dict):
+            return
+
+        audio = data.get("audio")
+        if isinstance(audio, dict) and isinstance(audio.get("volume"), (int, float)):
+            self.volume = max(0.0, min(1.0, float(audio["volume"])))
+        fx = data.get("fx")
+        if isinstance(fx, dict):
+            if isinstance(fx.get("scanlines"), bool):
+                self.scanlines = fx["scanlines"]
+            if isinstance(fx.get("particles"), bool):
+                self.particles = fx["particles"]
+
+        raw = data.get("keys")
         if isinstance(raw, dict):
             self.keys = dict(DEFAULT_KEYS)
             for action in DEFAULT_KEYS:
@@ -86,17 +102,22 @@ class Config:
 
         # legacy layout: {"lane_keys": [...], "editor_stop": "space"}
         self.keys = dict(DEFAULT_KEYS)
-        lanes = data.get("lane_keys") if isinstance(data, dict) else None
+        lanes = data.get("lane_keys")
         if isinstance(lanes, list):
             for i, value in enumerate(lanes[:4]):
                 self.keys[f"lane_{i}"] = self._valid(value)
-        if isinstance(data, dict) and "editor_stop" in data:
+        if "editor_stop" in data:
             self.keys["editor_stop"] = self._valid(data.get("editor_stop"))
 
     def save(self) -> None:
+        payload = {
+            "keys": self.keys,
+            "audio": {"volume": round(self.volume, 3)},
+            "fx": {"scanlines": self.scanlines, "particles": self.particles},
+        }
         try:
             with open(self.path, "w", encoding="utf-8") as fh:
-                json.dump({"keys": self.keys}, fh, indent=2)
+                json.dump(payload, fh, indent=2)
         except OSError as exc:
             print(f"[config] could not save settings: {exc}")
 

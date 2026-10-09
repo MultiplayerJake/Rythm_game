@@ -20,6 +20,7 @@ from ..services.save_system import SaveSystem
 from .config import Config
 from .scene_manager import SceneManager
 from ..ui import theme
+from ..ui.effects import Backdrop
 
 
 class Game:
@@ -38,6 +39,7 @@ class Game:
         self.save = SaveSystem()
         self.levels = LevelLibrary()
         self.audio = AudioEngine()
+        self.audio.set_volume(self.config.volume)
 
         # borderless windowed fullscreen: same look as native fullscreen,
         # but alt-tab / file dialogs no longer minimize the game
@@ -50,6 +52,7 @@ class Game:
         self.scenes = SceneManager()
         self.clock = pygame.time.Clock()
         self.running = True
+        self.backdrop = Backdrop()
 
         self._scale = 1.0
         self._offset = (0, 0)
@@ -89,7 +92,11 @@ class Game:
 
             self.scenes.update(dt)
             self.base.fill(theme.BG)
+            self.backdrop.draw(self.base, dt,
+                               particles=self.config.particles)
             self.scenes.draw(self.base)
+            if self.config.scanlines:
+                theme.scanlines(self.base)
 
             self.screen.fill((0, 0, 0))
             scaled = pygame.transform.smoothscale(

@@ -1,4 +1,4 @@
-"""End-of-round results screen."""
+"""End-of-round results: rank, score, accuracy, combo, hit statistics."""
 
 from __future__ import annotations
 
@@ -8,6 +8,10 @@ from ..core.scene import Scene
 from ..ui import theme
 from ..ui.widgets import Button
 
+RANKS = ((99.0, "S+", theme.CYAN), (95.0, "S", theme.CYAN),
+         (90.0, "A", theme.GREEN), (80.0, "B", theme.YELLOW),
+         (70.0, "C", theme.LAVENDER), (0.0, "D", theme.PINK))
+
 
 class ResultsScene(Scene):
     def __init__(self, game, level, summary: dict):
@@ -15,6 +19,8 @@ class ResultsScene(Scene):
         self.level = level
         self.summary = summary
         self.is_new_high = game.save.record_score(level.name, summary["score"])
+        self.accuracy = self._accuracy(summary)
+        self.rank, self.rank_color = self._rank(self.accuracy)
 
         cy = theme.BASE_H // 2 + 130
         w, h = 240, 58
@@ -24,6 +30,21 @@ class ResultsScene(Scene):
                            self._menu, size=24, skew=14)
         self.buttons = [self.again, self.menu]
         self.selected = 0
+
+    @staticmethod
+    def _accuracy(s: dict) -> float:
+        total = s["perfect"] + s["great"] + s["good"] + s["miss"]
+        if not total:
+            return 100.0
+        got = s["perfect"] + s["great"] * 0.75 + s["good"] * 0.5
+        return 100.0 * got / total
+
+    @staticmethod
+    def _rank(acc: float):
+        for limit, name, color in RANKS:
+            if acc >= limit:
+                return name, color
+        return "D", theme.PINK
 
     def _again(self) -> None:
         from .play import PlayScene
@@ -52,42 +73,72 @@ class ResultsScene(Scene):
     def update(self, dt: float) -> None:
         pass
 
+    # ---------------------------------------------------------------- draw
     def draw(self, surface) -> None:
+        import math
         s = self.summary
-        theme.title_text(surface, "TRACK COMPLETE", theme.BASE_W // 2, 96, 44)
-        theme.draw_text(surface, self.level.name, theme.BASE_W // 2, 154,
-                        size=18, color=theme.DIM, align="center")
+        pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 380.0)
 
-        theme.draw_text(surface, f"{s['score']:,}", theme.BASE_W // 2, 206,
-                        size=76, color=theme.WHITE, align="center",
-                        glow=theme.PURPLE)
-        if self.is_new_high:
-            theme.draw_text(surface, "NEW HIGH SCORE!", theme.BASE_W // 2, 300,
-                            size=22, color=theme.YELLOW, align="center",
-                            glow=theme.ORANGE)
-        else:
-            theme.draw_text(surface,
-                            f"HIGH SCORE {self.game.save.high_score(self.level.name):,}",
-                            theme.BASE_W // 2, 302, size=18,
-                            color=theme.DIM, align="center")
+        theme.title_text(surface, "TRACK COMPLETE", theme.BASE_W // 2, 56,
+                         size=44, glow=theme.MAGENTA)
+        theme.draw_text(surface, self.level.name, theme.BASE_W // 2, 118,
+                        size=18, color=theme.LAVENDER, align="center")
 
-        theme.draw_text(surface, f"MAX COMBO  {s['max_combo']}",
-                        theme.BASE_W // 2, 348, size=26, color=theme.CYAN,
+        # ---- rank badge (left) + accuracy (right) -----------------------
+        cx = theme.BASE_W // 2
+        rank_box = pygame.Rect(cx - 400, 170, 150, 150)
+        theme.panel(surface, rank_box, fill=theme.PANEL,
+                    border=self.rank_color, radius=14,
+                    glow=self.rank_color)
+        theme.draw_text(surface, self.rank, rank_box.centerx,
+                        rank_box.y + 24, size=76, color=self.rank_color,
+                        align="center", glow=self.rank_color)
+        theme.draw_text(surface, "RANK", rank_box.centerx, rank_box.bottom - 34,
+                        size=14, color=theme.DIM, align="center")
+
+        acc_box = pygame.Rect(cx + 250, 170, 150, 150)
+        theme.panel(surface, acc_box, fill=theme.PANEL, border=theme.CYAN,
+                    radius=14, glow=theme.VIOLET)
+        theme.draw_text(surface, f"{self.accuracy:.1f}%", acc_box.centerx,
+                        acc_box.y + 44, size=34, color=theme.WHITE,
+                        align="center", glow=theme.CYAN)
+        theme.draw_text(surface, "ACCURACY", acc_box.centerx,
+                        acc_box.bottom - 34, size=14, color=theme.DIM,
                         align="center")
 
+        # ---- score -------------------------------------------------------
+        theme.draw_text(surface, f"{s['score']:,}", cx, 176, size=76,
+                        color=theme.WHITE, align="center", glow=theme.VIOLET)
+        if self.is_new_high:
+            theme.draw_text(surface, "★ NEW HIGH SCORE ★", cx, 278, size=22,
+                            color=theme.YELLOW, align="center",
+                            glow=theme.ORANGE if pulse > 0.4 else theme.YELLOW)
+        else:
+            theme.draw_text(surface,
+                            f"HIGH SCORE "
+                            f"{self.game.save.high_score(self.level.name):,}",
+                            cx, 280, size=21, color=theme.LAVENDER,
+                            align="center")
+
+        theme.draw_text(surface, f"MAX COMBO  {s['max_combo']}", cx, 330,
+                        size=26, color=theme.CYAN, align="center",
+                        glow=theme.MAGENTA)
+
+        # ---- hit statistics ---------------------------------------------
         items = [("PERFECT", s["perfect"], theme.CYAN),
                  ("GREAT", s["great"], theme.YELLOW),
                  ("GOOD", s["good"], theme.GREEN),
-                 ("MISS", s["miss"], theme.RED)]
+                 ("MISS", s["miss"], theme.PINK)]
         total_w = 4 * 170
-        x0 = theme.BASE_W // 2 - total_w // 2
+        x0 = cx - total_w // 2
         for i, (label, count, color) in enumerate(items):
             x = x0 + i * 170 + 85
-            box = pygame.Rect(x - 74, 402, 148, 74)
-            theme.panel(surface, box, fill=theme.PANEL, border=theme.BORDER)
-            theme.draw_text(surface, count, x, 412, size=30, color=color,
+            box = pygame.Rect(x - 74, 388, 148, 74)
+            theme.panel(surface, box, fill=theme.PANEL, border=theme.BORDER,
+                        radius=10, glow=color if count else None)
+            theme.draw_text(surface, count, x, 398, size=30, color=color,
                             align="center")
-            theme.draw_text(surface, label, x, 452, size=14, color=theme.DIM,
+            theme.draw_text(surface, label, x, 438, size=14, color=theme.DIM,
                             align="center")
 
         for i, b in enumerate(self.buttons):
@@ -97,5 +148,5 @@ class ResultsScene(Scene):
         theme.draw_text(surface,
                         f"{cfg.label('confirm')} = confirm  ·  "
                         f"{cfg.label('cancel')} = main menu",
-                        theme.BASE_W // 2, theme.BASE_H - 60, size=15,
+                        theme.BASE_W // 2, theme.BASE_H - 46, size=15,
                         color=theme.DIM, align="center")
