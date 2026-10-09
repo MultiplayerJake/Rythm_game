@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.superpowers/
+stats.dat
+stats.dat.bak
+settings.json
