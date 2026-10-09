@@ -3,8 +3,9 @@
 Setup state picks the audio (tkinter file dialog or a pasted path) and
 the level name, copies the audio into ``music_levels/`` and writes an
 empty chart. Recording state plays the song once while the creator taps
-the lane keys; short taps become single notes, holds become sustains,
-and holding Ctrl marks the note as a boost note.
+the lane keys; short taps become single notes, holding a key for
+``SUSTAIN_MIN_MS`` or longer becomes a sustain, and holding Ctrl marks
+the note as a boost note.
 
 Editor-Stop key (default Space) saves; Esc cancels and removes anything
 that was created.
@@ -21,7 +22,7 @@ from ..ui import theme
 from ..ui.highway import HighwayView, key_labels
 from ..ui.widgets import Button, TextField
 
-SUSTAIN_MIN_MS = 120.0
+SUSTAIN_MIN_MS = 400.0        # must hold at least this long to be a sustain
 BTN_W, BTN_H = 200, 50
 
 
@@ -36,15 +37,15 @@ class EditorScene(Scene):
         self.highway = HighwayView()
 
         y = 300
-        self.path_field = TextField((180, y, 640, 48),
+        self.path_field = TextField((360, y, 560, 48),
                                     placeholder="audio file path (.mp3 / .wav)")
-        self.name_field = TextField((180, y + 74, 640, 48),
+        self.name_field = TextField((360, y + 74, 560, 48),
                                     placeholder="level name")
-        self.browse_btn = Button((844, y, 180, 48), "BROWSE...", self._browse,
+        self.browse_btn = Button((940, y, 180, 48), "BROWSE...", self._browse,
                                  size=20)
-        self.cancel_btn = Button((180, y + 158, 180, 50), "CANCEL", self._back,
+        self.cancel_btn = Button((360, y + 158, 180, 50), "CANCEL", self._back,
                                  size=20)
-        self.start_btn = Button((844, y + 158, 180, 50), "START RECORDING",
+        self.start_btn = Button((940, y + 158, 180, 50), "START RECORDING",
                                 self._start_recording, size=18, kind="primary")
         self.setup_buttons = [self.browse_btn, self.cancel_btn, self.start_btn]
 
@@ -127,9 +128,12 @@ class EditorScene(Scene):
             self._close_hold(lane, pos)
         self.info.notes = sorted(self.recorded,
                                  key=lambda n: (n["time"], n["lane"]))
+        # the level ends where the creator stopped the recording
+        self.info.end = pos if pos > 0 else None
         self.game.levels.write(self.info)
+        self.game.audio.stop()
         print(f"[editor] saved level '{self.info.name}' "
-              f"with {len(self.info.notes)} note(s)")
+              f"with {len(self.info.notes)} note(s), end={self.info.end}")
         self._back()
 
     def _cancel(self) -> None:
@@ -165,16 +169,18 @@ class EditorScene(Scene):
             for btn in self.setup_buttons:
                 if btn.handle_event(event):
                     return
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            if event.type == pygame.KEYDOWN and event.key == \
+                    self.game.config.key("cancel"):
                 self._back()
             return
 
         # recording
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
+            cfg = self.game.config
+            if event.key == cfg.key("cancel"):
                 self._cancel()
                 return
-            if event.key == pygame.K_BACKSPACE:
+            if event.key == cfg.key("editor_undo"):
                 if self.recorded:
                     self.recorded.pop()
                 return
@@ -211,25 +217,27 @@ class EditorScene(Scene):
 
     def _draw_setup(self, surface) -> None:
         theme.title_text(surface, "NEW LEVEL", theme.BASE_W // 2, 74, 42)
-        theme.draw_text(surface, "1. Choose an audio file", 180, 244, 20,
-                        color=theme.CYAN)
-        theme.draw_text(surface, "2. Name the level", 180, 318, 20,
-                        color=theme.CYAN)
-        theme.draw_text(surface,
-                        "The audio is copied into music_levels/ and a chart "
-                        "file is created.",
-                        180, 404, 15, color=theme.DIM)
+        # labels sit to the left of their input, vertically centred on it
+        theme.draw_text(surface, "1. Choose an audio file", 330, 313, 20,
+                        color=theme.CYAN, align="right")
+        theme.draw_text(surface, "2. Name the level", 330, 387, 20,
+                        color=theme.CYAN, align="right")
 
         self.path_field.draw(surface)
         self.name_field.draw(surface)
         for btn in self.setup_buttons:
             btn.draw(surface)
 
+        theme.draw_text(surface,
+                        "The audio is copied into music_levels/ and a chart "
+                        "file is created.",
+                        theme.BASE_W // 2, 534, 15, color=theme.DIM,
+                        align="center")
         if self.status:
-            theme.draw_text(surface, self.status, theme.BASE_W // 2, 520, 17,
+            theme.draw_text(surface, self.status, theme.BASE_W // 2, 566, 17,
                             color=theme.RED, align="center")
         theme.draw_text(surface,
-                        "Esc = back to main menu",
+                        f"{self.game.config.label('cancel')} = back to main menu",
                         theme.BASE_W // 2, theme.BASE_H - 60, 16,
                         color=theme.DIM, align="center")
 
@@ -246,10 +254,22 @@ class EditorScene(Scene):
                         theme.BASE_W // 2, 82, 16, color=theme.DIM,
                         align="center")
 
+        pending = [lane for lane, hold in self.open_holds.items()
+                   if pos - hold["start"] < SUSTAIN_MIN_MS]
+        if pending:
+            left = max(SUSTAIN_MIN_MS - (pos - self.open_holds[pending[0]]["start"]),
+                       0.0)
+            theme.draw_text(surface, f"keep holding  {left / 1000:.1f}s for a sustain",
+                            theme.BASE_W // 2, 108, 15, color=theme.YELLOW,
+                            align="center")
+
         display_notes = list(self.recorded)
         for lane, hold in self.open_holds.items():
+            held_for = pos - hold["start"]
+            is_sustain = held_for >= SUSTAIN_MIN_MS
             display_notes.append({"lane": lane, "time": hold["start"],
-                                  "end": pos, "boost": hold["boost"]})
+                                  "end": pos if is_sustain else None,
+                                  "boost": hold["boost"]})
 
         cfg = self.game.config
         self.highway.draw(surface, pos, display_notes,
@@ -257,8 +277,10 @@ class EditorScene(Scene):
                           labels=key_labels(cfg))
 
         stop = cfg.editor_stop_name
-        hint = (f"Lane keys = note  ·  hold = sustain  ·  Ctrl+key = boost note\n"
-                f"{stop} = stop & save  ·  Backspace = undo  ·  Esc = cancel")
+        hint = (f"Lane keys = note  ·  hold >= {SUSTAIN_MIN_MS / 1000:.1f}s = sustain"
+                f"  ·  Ctrl+key = boost note\n"
+                f"{stop} = stop & save  ·  {cfg.label('editor_undo')} = undo"
+                f"  ·  {cfg.label('cancel')} = cancel")
         y = 548
         for line in hint.split("\n"):
             theme.draw_text(surface, line, theme.BASE_W // 2, y, 16,

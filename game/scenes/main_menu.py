@@ -44,13 +44,14 @@ class MainMenuScene(Scene):
             if b.handle_event(event):
                 return
         if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_UP, pygame.K_w):
+            cfg = self.game.config
+            if event.key == cfg.key("menu_up"):
                 self.selected = (self.selected - 1) % len(self.buttons)
-            elif event.key in (pygame.K_DOWN, pygame.K_s):
+            elif event.key == cfg.key("menu_down"):
                 self.selected = (self.selected + 1) % len(self.buttons)
-            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            elif event.key == cfg.key("confirm") or event.key == pygame.K_KP_ENTER:
                 self.buttons[self.selected].on_click()
-            elif event.key == pygame.K_ESCAPE:
+            elif event.key == cfg.key("cancel"):
                 self.game.quit()
 
     def update(self, dt: float) -> None:
@@ -71,13 +72,14 @@ class MainMenuScene(Scene):
                         size=15, color=theme.DIM, align="center")
 
         for i, b in enumerate(self.buttons):
-            if i == self.selected:
-                b.hovered = True
-            b.draw(surface)
+            b.draw(surface, selected=(i == self.selected))
             if i == self.selected:
                 theme.draw_text(surface, ">", b.rect.x - 26, b.rect.y + 14,
                                 size=24, color=theme.CYAN, align="center")
 
-        theme.draw_text(surface, "Arrows / Enter or click  ·  Esc quits",
+        cfg = self.game.config
+        theme.draw_text(surface,
+                        f"{cfg.label('menu_up')}/{cfg.label('menu_down')} or "
+                        f"click  ·  {cfg.label('cancel')} quits",
                         theme.BASE_W // 2, theme.BASE_H - 44, size=15,
                         color=theme.DIM, align="center")

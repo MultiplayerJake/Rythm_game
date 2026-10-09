@@ -42,23 +42,28 @@ class Button:
                 return True
         return False
 
-    def draw(self, surface):
+    def draw(self, surface, hover=None, selected=False):
+        """``hover`` forces the hover highlight (mouse hover drives it
+        otherwise); ``selected`` only brightens the fill.
+
+        The cyan border appears *only* while hovered - idle and merely
+        keyboard-selected buttons are borderless."""
+        hovered = self.hovered if hover is None else hover
         primary = self.kind == "primary"
-        border = theme.CYAN if (primary or self.hovered) else theme.BORDER
-        fill = theme.PANEL_LIGHT if (self.hovered or primary) else theme.PANEL
+        border = theme.CYAN if hovered else None
+        fill = theme.PANEL_LIGHT if (hovered or primary or selected) else theme.PANEL
         if not self.enabled:
             border, fill = theme.BORDER, theme.PANEL
 
         poly = self._poly()
         if poly:
             pygame.draw.polygon(surface, fill, poly)
-            pygame.draw.polygon(surface, border, poly, 2)
+            if border:
+                pygame.draw.polygon(surface, border, poly, 2)
         else:
             theme.panel(surface, self.rect, fill=fill, border=border)
 
         color = theme.WHITE if self.enabled else theme.DIM
-        if primary:
-            color = theme.BG if self.enabled else theme.DIM
         img = theme.font(self.size).render(self.label, True, color)
         surface.blit(img, img.get_rect(center=self.rect.center))
 

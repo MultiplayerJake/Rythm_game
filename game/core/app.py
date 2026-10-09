@@ -1,9 +1,10 @@
 """Game core: window, main loop, service wiring, screen-space scaling.
 
 The whole game is authored against a 1280x720 design surface which is
-scaled uniformly (letterboxed) onto the fullscreen desktop resolution.
-Mouse events are converted back into design-space coordinates before
-they reach the active scene.
+scaled uniformly (letterboxed) onto a borderless window the size of the
+desktop. This behaves like fullscreen but never minimizes when focus is
+lost (file dialogs, alt-tab). Mouse events are converted back into
+design-space coordinates before they reach the active scene.
 """
 
 from __future__ import annotations
@@ -38,7 +39,11 @@ class Game:
         self.levels = LevelLibrary()
         self.audio = AudioEngine()
 
-        self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        # borderless windowed fullscreen: same look as native fullscreen,
+        # but alt-tab / file dialogs no longer minimize the game
+        info = pygame.display.Info()
+        self.screen = pygame.display.set_mode((info.current_w, info.current_h),
+                                              pygame.NOFRAME)
         self.base = pygame.Surface((theme.BASE_W, theme.BASE_H))
         pygame.display.set_caption("Rhythm Fest")
 

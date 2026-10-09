@@ -64,6 +64,26 @@ class TestLevels(unittest.TestCase):
         self.assertEqual(loaded.notes[1]["end"], 900.0)
         self.assertTrue(loaded.notes[1]["boost"])
 
+    def test_end_roundtrip(self):
+        info = self.lib.create("Long", self.src)
+        info.end = 5432.0
+        self.lib.write(info)
+        self.assertEqual(self.lib.scan()[0].end, 5432.0)
+
+    def test_missing_or_bad_end_is_none(self):
+        info = self.lib.create("NoEnd", self.src)
+        with open(info.json_path, "w", encoding="utf-8") as fh:
+            json.dump({"name": "NoEnd", "audio": info.audio_file,
+                       "notes": []}, fh)
+        self.assertIsNone(self.lib.scan()[0].end)
+
+        with open(info.json_path, "w", encoding="utf-8") as fh:
+            json.dump({"name": "NoEnd", "audio": info.audio_file,
+                       "end": "soon", "notes": []}, fh)
+        level = self.lib.scan()[0]
+        self.assertTrue(level.valid)
+        self.assertIsNone(level.end)
+
 
 if __name__ == "__main__":
     unittest.main()

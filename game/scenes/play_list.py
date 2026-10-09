@@ -42,13 +42,15 @@ class PlayListScene(Scene):
                         self._launch(info)
                     return
         elif event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
+            cfg = self.game.config
+            if event.key == cfg.key("cancel"):
                 self._back()
-            elif event.key in (pygame.K_UP, pygame.K_w):
+            elif event.key == cfg.key("menu_up"):
                 self.selected = max(0, self.selected - 1)
-            elif event.key in (pygame.K_DOWN, pygame.K_s):
+            elif event.key == cfg.key("menu_down"):
                 self.selected = min(max(len(self.levels) - 1, 0), self.selected + 1)
-            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            elif (event.key == cfg.key("confirm")
+                  or event.key == pygame.K_KP_ENTER):
                 if self.levels:
                     self._launch(self.levels[self.selected])
 
@@ -96,8 +98,10 @@ class PlayListScene(Scene):
                             rect.y + 17, size=20, color=theme.YELLOW,
                             align="right")
 
+        cfg = self.game.config
         theme.draw_text(surface,
-                        "Enter = play  ·  Esc = back  ·  "
+                        f"{cfg.label('confirm')} = play  ·  "
+                        f"{cfg.label('cancel')} = back  ·  "
                         f"{len(self.levels)} level(s)",
                         theme.BASE_W // 2, theme.BASE_H - 150, size=16,
                         color=theme.DIM, align="center")

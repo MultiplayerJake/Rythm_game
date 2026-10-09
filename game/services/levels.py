@@ -11,13 +11,15 @@ Level JSON schema::
     {
       "name":  "Neon Skyline",
       "audio": "music_Neon_Skyline.mp3",
+      "end":   93450.0,
       "notes": [
         {"lane": 0, "time": 1200.0, "end": null, "boost": false}
       ]
     }
 
 ``time``/``end`` are milliseconds from the start of the song; ``end`` is
-present only for sustain notes.
+present only for sustain notes. The top-level ``end`` is the song length,
+captured when the creator stopped recording (null = play the whole file).
 """
 
 from __future__ import annotations
@@ -39,6 +41,7 @@ class LevelInfo:
     json_path: str
     audio_path: str | None
     notes: list = field(default_factory=list)
+    end: float | None = None      # song length in ms (None = whole track)
     valid: bool = False
     error: str = ""
 
@@ -85,6 +88,7 @@ class LevelLibrary:
             with open(path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
             info.notes = self._validate_notes(data.get("notes"))
+            info.end = self._validate_end(data.get("end"))
             audio_file = data.get("audio")
             if not isinstance(audio_file, str) or not audio_file:
                 raise ValueError("missing audio reference")
@@ -96,6 +100,14 @@ class LevelLibrary:
         except (OSError, ValueError) as exc:
             info.error = str(exc)
         return info
+
+    @staticmethod
+    def _validate_end(raw) -> float | None:
+        if raw is None:
+            return None
+        if isinstance(raw, (int, float)) and raw > 0:
+            return float(raw)
+        return None
 
     @staticmethod
     def _validate_notes(raw) -> list:
@@ -156,6 +168,7 @@ class LevelLibrary:
         payload = {
             "name": info.name,
             "audio": info.audio_file,
+            "end": info.end,
             "notes": [
                 {"lane": n["lane"], "time": n["time"],
                  "end": n["end"], "boost": n["boost"]}

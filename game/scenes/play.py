@@ -17,7 +17,8 @@ class PlayScene(Scene):
     def __init__(self, game, level):
         super().__init__(game)
         self.level = level
-        self.engine = RhythmEngine(level.notes, game.audio.position_ms)
+        self._frozen_pos = None      # set once the level end is reached
+        self.engine = RhythmEngine(level.notes, self._clock)
         self.highway = HighwayView()
         self.popups = []          # [text, color, life]
         self.error = None
@@ -27,6 +28,12 @@ class PlayScene(Scene):
             game.audio.play(level.audio_path)
         except pygame.error as exc:
             self.error = f"Could not play audio: {exc}"
+
+    def _clock(self) -> float:
+        """Song clock; freezes at the level end so notes stop moving."""
+        if self._frozen_pos is not None:
+            return self._frozen_pos
+        return self.game.audio.position_ms()
 
     # ------------------------------------------------------------- input
     def _lane_map(self) -> dict:
@@ -44,13 +51,14 @@ class PlayScene(Scene):
             return
 
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
+            cfg = self.game.config
+            if event.key == cfg.key("cancel"):
                 self._to_list()
                 return
             lanes = self._lane_map()
             if event.key in lanes:
                 self.engine.press_lane(lanes[event.key])
-            elif event.key == pygame.K_SPACE:
+            elif event.key == cfg.key("boost"):
                 self.engine.press_boost()
         elif event.type == pygame.KEYUP:
             lanes = self._lane_map()
@@ -71,6 +79,7 @@ class PlayScene(Scene):
             return
 
         self.engine.update(dt)
+        self._dt = dt
 
         for judgment in self.engine.pop_judgments():
             color = theme.RATING_COLORS[judgment.rating]
@@ -84,7 +93,19 @@ class PlayScene(Scene):
             popup[2] -= dt
         self.popups = [p for p in self.popups if p[2] > 0]
 
-        if self.game.audio.finished:
+        if self._frozen_pos is None:
+            pos = self._clock()
+            reached_end = (self.level.end is not None
+                           and pos >= self.level.end)
+            if reached_end or self.game.audio.finished:
+                self._frozen_pos = pos
+                self.game.audio.stop()
+                # release any keys still held: the round is over, so no
+                # further sustain points should accrue during the linger
+                for lane in range(4):
+                    if self.engine.lane_states[lane]:
+                        self.engine.release_lane(lane)
+        else:
             self._end_timer += dt
             if self._end_timer >= END_LINGER:
                 self._finish()
@@ -102,11 +123,11 @@ class PlayScene(Scene):
                             color=theme.RED, align="center")
             return
 
-        song_pos = self.game.audio.position_ms()
+        song_pos = self._clock()
         cfg = self.game.config
         self.highway.draw(surface, song_pos, self.engine.notes,
                           lane_down=self.engine.lane_states,
-                          labels=key_labels(cfg))
+                          labels=key_labels(cfg), dt=getattr(self, "_dt", 0.0))
 
         self._draw_hud(surface)
         self._draw_boost(surface)
@@ -114,7 +135,9 @@ class PlayScene(Scene):
 
         theme.draw_text(surface, self.level.name, HW.centerx, 18, size=18,
                         color=theme.DIM, align="center")
-        theme.draw_text(surface, "Esc = quit to menu", theme.BASE_W - 24, 18,
+        theme.draw_text(surface,
+                        f"{self.game.config.label('cancel')} = quit to menu",
+                        theme.BASE_W - 24, 18,
                         size=14, color=theme.DIM, align="right")
 
     def _draw_hud(self, surface) -> None:

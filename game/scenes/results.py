@@ -38,13 +38,15 @@ class ResultsScene(Scene):
             if b.handle_event(event):
                 return
         if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_LEFT, pygame.K_a):
+            cfg = self.game.config
+            if event.key == cfg.key("menu_left"):
                 self.selected = 0
-            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+            elif event.key == cfg.key("menu_right"):
                 self.selected = 1
-            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            elif (event.key == cfg.key("confirm")
+                  or event.key == pygame.K_KP_ENTER):
                 self.buttons[self.selected].on_click()
-            elif event.key == pygame.K_ESCAPE:
+            elif event.key == cfg.key("cancel"):
                 self._menu()
 
     def update(self, dt: float) -> None:
@@ -89,9 +91,11 @@ class ResultsScene(Scene):
                             align="center")
 
         for i, b in enumerate(self.buttons):
-            b.hovered = (i == self.selected)
-            b.draw(surface)
+            b.draw(surface, selected=(i == self.selected))
 
-        theme.draw_text(surface, "Enter = confirm  ·  Esc = main menu",
+        cfg = self.game.config
+        theme.draw_text(surface,
+                        f"{cfg.label('confirm')} = confirm  ·  "
+                        f"{cfg.label('cancel')} = main menu",
                         theme.BASE_W // 2, theme.BASE_H - 60, size=15,
                         color=theme.DIM, align="center")
