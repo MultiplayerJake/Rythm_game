@@ -4,3 +4,5 @@ __pycache__/
 stats.dat
 stats.dat.bak
 settings.json
+build/
+dist/

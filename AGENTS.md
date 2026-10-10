@@ -21,6 +21,28 @@ python -m pip install -r requirements.txt
   `SDL_VIDEODRIVER=dummy` + `SDL_AUDIODRIVER=dummy`, draw a scene onto
   `game.base`, then assert pixel counts in the regions you changed.
 
+## Building the .exe
+
+```powershell
+python -m pip install -r requirements-dev.txt   # pygame + pyinstaller
+powershell -File tools\package.ps1              # -> dist\Rhythm Fest.exe
+```
+
+- Output layout: `dist\Rhythm Fest.exe` (onefile, windowed, UPX off) plus
+  `dist\music_levels\` — charts/audio are copied **beside** the exe; `stats.dat`
+  and `settings.json` are **never shipped** and are created fresh next to the exe
+  on the receiving machine.
+- `main.py` does two frozen-only things that the exe depends on: `os.chdir` to the
+  exe's folder when `sys.frozen` (so cwd-relative paths resolve next to the exe no
+  matter how it's launched) and redirecting `sys.stdout`/`sys.stderr` to devnull
+  when they're `None` (windowed PyInstaller builds — the game's diagnostic prints
+  would otherwise crash). Do not remove either.
+- Spec file `Rhythm Fest.spec` is committed; rebuilds are reproducible. tkinter
+  (editor Browse dialog) and pygame SDL are picked up automatically — verified by
+  checking the `_MEI*` extraction bundle while the exe runs.
+- Unsigned exe → SmartScreen "Windows protected your computer" on first run
+  (More info → Run anyway); keep the exe somewhere writable (not Program Files).
+
 ## Gotchas that bite
 
 - **cwd-relative paths**: `music_levels/`, `stats.dat`, `settings.json` are all opened
