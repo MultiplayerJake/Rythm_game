@@ -244,27 +244,24 @@ class EditorScene(Scene):
                         theme.BASE_W // 2, theme.BASE_H - 60, 16,
                         color=theme.DIM, align="center")
 
+    def _centered_line(self, surface, text, y, size, color, pad=10, glow=None):
+        """Backdrop panel first, then the text on top of it."""
+        w, h = theme.font(size).size(text)
+        cx = theme.BASE_W // 2
+        bg = pygame.Rect(cx - w // 2 - pad, y - 4, w + pad * 2, h + 8)
+        theme.panel(surface, bg, fill=theme.PANEL, border=theme.BORDER, radius=6)
+        theme.draw_text(surface, text, cx, y, size, color=color,
+                        align="center", glow=glow)
+
     def _draw_recording(self, surface) -> None:
         pos = self._pos()
         minutes, seconds = divmod(int(pos // 1000), 60)
 
+        # top bar: recording timer (y=14, above the highway which starts at y=60)
         theme.draw_text(surface,
                         f"\u25cf RECORDING  {minutes:02d}:{seconds:02d}",
-                        theme.BASE_W // 2, 46, 26, color=theme.YELLOW,
+                        theme.BASE_W // 2, 14, 26, color=theme.YELLOW,
                         align="center", glow=theme.ORANGE)
-        theme.draw_text(surface, f"{self.info.name}  ·  "
-                        f"{len(self.recorded) + len(self.open_holds)} note(s)",
-                        theme.BASE_W // 2, 82, 16, color=theme.DIM,
-                        align="center")
-
-        pending = [lane for lane, hold in self.open_holds.items()
-                   if pos - hold["start"] < SUSTAIN_MIN_MS]
-        if pending:
-            left = max(SUSTAIN_MIN_MS - (pos - self.open_holds[pending[0]]["start"]),
-                       0.0)
-            theme.draw_text(surface, f"keep holding  {left / 1000:.1f}s for a sustain",
-                            theme.BASE_W // 2, 108, 15, color=theme.YELLOW,
-                            align="center")
 
         display_notes = list(self.recorded)
         for lane, hold in self.open_holds.items():
@@ -279,13 +276,29 @@ class EditorScene(Scene):
                           lane_down=[lane in self.open_holds for lane in range(4)],
                           labels=key_labels(cfg))
 
+        # level info drawn ON TOP of the highway so it always reads
+        self._centered_line(
+            surface,
+            f"{self.info.name}  ·  "
+            f"{len(self.recorded) + len(self.open_holds)} note(s)",
+            66, 16, theme.WHITE)
+
+        pending = [lane for lane, hold in self.open_holds.items()
+                   if pos - hold["start"] < SUSTAIN_MIN_MS]
+        if pending:
+            left = max(SUSTAIN_MIN_MS - (pos - self.open_holds[pending[0]]["start"]),
+                       0.0)
+            self._centered_line(
+                surface, f"keep holding  {left / 1000:.1f}s for a sustain",
+                96, 15, theme.YELLOW, pad=8)
+
+        # bottom hints with backdrop - moved lower
         stop = cfg.editor_stop_name
         hint = (f"Lane keys = note  ·  hold >= {SUSTAIN_MIN_MS / 1000:.1f}s = sustain"
                 f"  ·  Ctrl+key = boost note\n"
                 f"{stop} = stop & save  ·  {cfg.label('editor_undo')} = undo"
                 f"  ·  {cfg.label('cancel')} = cancel")
-        y = 548
+        y = 590
         for line in hint.split("\n"):
-            theme.draw_text(surface, line, theme.BASE_W // 2, y, 16,
-                            color=theme.DIM, align="center")
-            y += 24
+            self._centered_line(surface, line, y, 16, theme.WHITE)
+            y += 28
