@@ -163,22 +163,35 @@ class HighwayView:
             y_head = self.y_for(t, song_pos)
             y_tail = self.y_for(end, song_pos) if end is not None else None
 
-            # skip far-away future notes (cheap culling)
+            # skip notes that cannot be seen: still far above the highway,
+            # or (tap notes) already below it. A sustain is never culled by
+            # its head alone - during a hold the head travels far below the
+            # highway while the beam and tail stay visible, so checks must
+            # use the beam's top end (y_tail) instead (a 10 s hold used to
+            # vanish ~0.8 s after the hit while the hold still counted).
             if y_head < HW.y - 60 and (y_tail is None or y_tail < HW.y - 60):
                 if t - song_pos > TRAVEL_MS + 400:
                     continue
-            if y_head > HW.bottom + 80:
+            if y_tail is None:
+                if y_head > HW.bottom + 80:
+                    continue
+            elif y_tail > HW.bottom + 80:
+                # whole sustain has slid past the bottom of the highway
                 continue
 
             lr = lanes[lane]
             cx = lr.centerx
             color = theme.MAGENTA if boost else theme.CYAN
 
-            if y_tail is not None and status not in ("hit", "missed"):
+            # "released" = the player let go early: the tail is dropped,
+            # so nothing is drawn any more (otherwise a long released
+            # sustain would linger on screen until its original end time)
+            done = status in ("hit", "missed", "released")
+            if y_tail is not None and not done:
                 self._draw_beam(surface, lr, y_head, y_tail, color, boost,
                                 holding, dt, lane)
 
-            if status in ("hit", "missed"):
+            if done:
                 continue
             self._draw_capsule(surface, lr, cx, y_head, color, boost, holding)
 
@@ -295,9 +308,13 @@ class HighwayView:
         self._hold_acc[lane] += dt * _SPARKS_PER_SEC
         while self._hold_acc[lane] >= 1.0:
             self._hold_acc[lane] -= 1.0
+            # keep sparks inside the highway even when the beam of a long
+            # hold runs far below it
+            top = HIT_Y - _NOTE_H // 2
+            bottom = max(top + 8, min(beam.bottom, HW.bottom))
             self._sparks.append({
                 "x": random.uniform(beam.left - 4, beam.right + 4),
-                "y": random.uniform(HIT_Y - _NOTE_H // 2, beam.bottom),
+                "y": random.uniform(top, bottom),
                 "vx": random.uniform(-16, 16),
                 "vy": random.uniform(-72, -18),
                 "life": 0.0,

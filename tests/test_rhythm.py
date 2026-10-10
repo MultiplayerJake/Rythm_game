@@ -127,6 +127,28 @@ class TestSustain(unittest.TestCase):
         from game.engine.note import HIT
         self.assertEqual(eng.notes[0].status, HIT)
 
+    def test_ten_second_hold_stays_active_for_the_full_duration(self):
+        from game.engine.note import HIT, HOLDING
+        eng, clock = make([{"lane": 0, "time": 1000.0, "end": 11000.0}])
+        clock.ms = 1000
+        eng.press_lane(0)
+        self.assertEqual(eng.notes[0].status, HOLDING)
+        base = eng.score
+        # still holding 9 s in, still accruing
+        clock.ms = 10000
+        eng.update(0.5)
+        self.assertEqual(eng.notes[0].status, HOLDING)
+        self.assertAlmostEqual(eng.score - base, 50.0, places=3)
+        # accrues right up to the tail...
+        clock.ms = 11000
+        eng.update(0.1)
+        self.assertEqual(eng.notes[0].status, HOLDING)
+        # ...and only completes once the tail passes the judgment window
+        clock.ms = 11000 + 141
+        eng.update(0.016)
+        self.assertEqual(eng.notes[0].status, HIT)
+        self.assertTrue(eng.finished)
+
 
 class TestFinish(unittest.TestCase):
     def test_finished_after_all_notes(self):

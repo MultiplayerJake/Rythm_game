@@ -6,7 +6,7 @@ Pygame 4-key rhythm game ("Rhythm Fest"). Python 3.12, pygame 2.6.1, no build sy
 
 ```powershell
 python main.py                       # play (must run from repo root)
-python -m unittest discover -s tests # 32 tests, ~0.1s
+python -m unittest discover -s tests # 33 tests, ~0.1s
 python tools/create_demo_level.py    # (re)generate the Demo_Beat level
 python -m pip install -r requirements.txt
 ```
@@ -77,6 +77,11 @@ python -m pip install -r requirements.txt
   `game/ui/widgets.py::Button.draw` — dark tile, plain label, **no glow and no font
   change**; mouse hover or keyboard focus adds only a cyan border. `kind="primary"`
   is cosmetic metadata and intentionally draws nothing special.
+- Sustain drawing (do not regress): `game/ui/highway.py::_draw_notes` culls a hold
+  by its **top end** (`y_tail`), never by the head — during a hold the head travels
+  far below the highway while the beam stays on screen (holds run unbounded, e.g.
+  10 s; culling by `y_head` made beams vanish ~0.8 s into the hold while the game
+  still counted it). `released` notes draw nothing (dropped tail must not linger).
 
 ## Gameplay constants
 
