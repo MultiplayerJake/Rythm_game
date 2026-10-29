@@ -28,6 +28,50 @@ always plays to the end of the track.
 
 ---
 
+## ▶ Download & play
+
+**No Python or installation required** — a ready-to-play build is included in the repo.
+
+1. Download the project (grab the **`dist/`** folder, or clone the whole repo).
+2. Open **`dist/`** and double-click **`Rhythm Fest.exe`**.
+3. Keep the exe next to the bundled **`music_levels/`** folder — the game loads its songs from there.
+
+> **First run on Windows?** The exe is unsigned, so SmartScreen may show *"Windows protected
+> your computer."* Click **More info → Run anyway**.
+
+That's it — pick a song from **Play** and start hitting notes.
+
+---
+
+## 🎮 Controls
+
+The four lanes sit under your right and left hand; everything else is one key away.
+
+| Action | Default key |
+|---|---|
+| Lanes 1–4 | `D` `F` `J` `K` |
+| **Boost** (double points) | `Space` |
+| Confirm / select | `Enter` |
+| Back / to main menu | `Esc` |
+
+In the editor: hold **`Ctrl`** for a boost note, **`Space`** to stop & save, **`Backspace`** to undo.
+
+**Every key is remappable** in-game via **Settings**. Full reference (gameplay, editor, and menu keys):
+➡ **[docs/CONTROLS.md](docs/CONTROLS.md)**
+
+---
+
+## 🛠 Level editor
+
+Turn any `.mp3`/`.wav` into a playable chart. **Main Menu → Create**, pick your audio, name
+the level, then tap the lane keys along to the song — a quick tap makes a note, holding a
+key makes a hold note. Press **Space** to save and it shows up in **Play**.
+
+Step-by-step guide (importing, recording, boost notes, saving):
+➡ **[docs/LEVEL_EDITOR.md](docs/LEVEL_EDITOR.md)**
+
+---
+
 ## Features
 
 - **Note highway** — fixed 1.6 s note travel, frame-rate independent, locked to the music clock.
@@ -41,13 +85,13 @@ always plays to the end of the track.
 - **Borderless fullscreen** — renders on a 1280×720 design surface, letterboxed to any monitor.
 
 ---
+---
 
-## Quick start (players)
+# For developers
 
-**Easiest:** grab `dist\Rhythm Fest.exe` from a release (built with PyInstaller) and keep it
-next to the `music_levels\` folder that ships beside it. Double-click to play.
+Everything below is for running, testing, or building from source. (Players can stop reading here.)
 
-**From source:**
+## Run from source
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -58,8 +102,6 @@ python main.py          # must run from the repo root
 > `settings.json` relative to the current working directory — launching from elsewhere
 > makes files appear to vanish.
 
----
-
 ## Requirements
 
 - **Python 3.12**
@@ -69,31 +111,31 @@ pygame must be installed for the *same* interpreter you run with (it lives in us
 site-packages). A `ModuleNotFoundError: No module named 'pygame'` means a different
 `python.exe` is running — reinstall there.
 
----
-
-## For developers
+## Tests & tooling
 
 ```powershell
-python -m pip install -r requirements.txt    # runtime deps
 python -m unittest discover -s tests         # 33 tests, ~0.1s
 python tools/create_demo_level.py            # (re)generate the Demo_Beat level
 ```
 
-To build the standalone exe (adds `pyinstaller` via `requirements-dev.txt`):
+There is no lint/typecheck/CI configured — the verification bar is
+`python -m py_compile <changed files>` plus the unittest run.
+
+## Building the .exe
+
+Rebuild the bundled `dist/` (adds `pyinstaller` via `requirements-dev.txt`):
 
 ```powershell
 python -m pip install -r requirements-dev.txt
 powershell -File tools\package.ps1           # -> dist\Rhythm Fest.exe
 ```
 
-There is no lint/typecheck/CI configured — the verification bar is
-`python -m py_compile <changed files>` plus the unittest run.
-
-### Project layout
+## Project layout
 
 ```
 Rythm_game/
 ├── main.py                  # boots Game()
+├── dist/                    # ready-to-play build (exe + bundled music_levels/)
 ├── game/
 │   ├── core/                # app (window/loop), scene stack, config
 │   ├── engine/              # pygame-free rhythm logic + Note model
@@ -107,13 +149,6 @@ Rythm_game/
 
 `game/engine/`, `game/services/save_system.py` and `game/services/levels.py` are kept
 **pygame-free** (the engine takes an injected clock) so they can be unit-tested headlessly.
-
----
-
-## Docs
-
-- **[Controls](docs/CONTROLS.md)** — every keybind for gameplay, the editor, and menus.
-- **[Level Editor](docs/LEVEL_EDITOR.md)** — how to chart your own songs step by step.
 
 ---
 
