@@ -9,37 +9,26 @@ always plays to the end of the track.
 
 ## Gameplay
 
-<!-- ▸▸ REPLACE THE COMMENTED BLOCK BELOW WITH YOUR VIDEO ◂◂
-     Uncomment ONE of the two options and drop in your file/link.
-     Until then it stays hidden, so the README renders cleanly. -->
-
-<!--
-### Option A — video file in the repo (e.g. docs/media/gameplay.mp4)
-
-<video src="docs/media/gameplay.mp4" width="720" controls></video>
-
-### Option B — YouTube / external link
-
-[![Rhythm Fest gameplay](https://img.shields.io/badge/watch-gameplay_video-7b2ff7?style=for-the-square)](YOUR_VIDEO_URL_HERE)
-![Rhythm Fest gameplay](docs/media/gameplay_thumbnail.png)
--->
-
 https://github.com/user-attachments/assets/217133ad-4a04-40eb-955b-5044cd2088b7
 
 ---
 
 ## ▶ Download & play
 
-**No Python or installation required** — a ready-to-play build is included in the repo.
+**No Python or installation required.**
 
-1. Download the project (grab the **`dist/`** folder, or clone the whole repo).
-2. Open **`dist/`** and double-click **`Rhythm Fest.exe`**.
-3. Keep the exe next to the bundled **`music_levels/`** folder — the game loads its songs from there.
+1. On this page, click **Code → Download ZIP**, then unzip the archive.
+2. Open the unzipped folder → **`dist/`** → double-click **`Rhythm Fest.exe`**.
 
 > **First run on Windows?** The exe is unsigned, so SmartScreen may show *"Windows protected
 > your computer."* Click **More info → Run anyway**.
 
-That's it — pick a song from **Play** and start hitting notes.
+**No songs are included** (game music isn't redistributed) — but you can play right away:
+
+- **Create your own level:** Main Menu → **Create**, pick any `.mp3`/`.wav` you own, tap out
+  the chart, and play it. See the [Level Editor guide](docs/LEVEL_EDITOR.md).
+- Drop your own audio + chart files into the `music_levels/` folder next to the exe
+  (the game creates the folder on first run).
 
 ---
 
@@ -85,7 +74,6 @@ Step-by-step guide (importing, recording, boost notes, saving):
 - **Borderless fullscreen** — renders on a 1280×720 design surface, letterboxed to any monitor.
 
 ---
----
 
 # For developers
 
@@ -130,19 +118,23 @@ python -m pip install -r requirements-dev.txt
 powershell -File tools\package.ps1           # -> dist\Rhythm Fest.exe
 ```
 
+> **Note:** `tools/package.ps1` copies everything in your local `music_levels/` next to the
+> exe. Those files are **gitignored** — only `dist/Rhythm Fest.exe` is committed, never the
+> songs.
+
 ## Project layout
 
 ```
 Rythm_game/
 ├── main.py                  # boots Game()
-├── dist/                    # ready-to-play build (exe + bundled music_levels/)
+├── dist/                    # ready-to-play build (Rhythm Fest.exe)
 ├── game/
 │   ├── core/                # app (window/loop), scene stack, config
 │   ├── engine/              # pygame-free rhythm logic + Note model
 │   ├── scenes/              # menu, play, editor, settings, results
 │   ├── services/            # save_system, levels, audio
 │   └── ui/                  # theme, widgets, highway rendering
-├── music_levels/            # user charts (<name>.json + music_<name>.mp3)
+├── music_levels/            # songs + charts — local only, never committed
 ├── tests/                   # stdlib unittest
 └── tools/                   # demo level + packaging script
 ```
@@ -152,7 +144,12 @@ Rythm_game/
 
 ---
 
+## License
+
+All rights reserved. No license is granted to use, modify, or redistribute this software.
+
+---
+
 ## Credits
 
-Built with [pygame](https://www.pygame.org/). Sample charts in `music_levels/` belong to
-their respective artists.
+Built with [pygame](https://www.pygame.org/).

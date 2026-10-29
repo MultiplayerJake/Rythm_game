@@ -5,4 +5,6 @@ stats.dat
 stats.dat.bak
 settings.json
 build/
+# Songs and charts are local-only — never commit them (game music copyright).
+# This pattern covers both ./music_levels/ and dist/music_levels/.
 music_levels/
