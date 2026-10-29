@@ -111,10 +111,10 @@ There is no lint/typecheck/CI configured — the verification bar is
 
 ## Building the .exe
 
-Rebuild the bundled `dist/` (adds `pyinstaller` via `requirements-dev.txt`):
+Rebuild the bundled `dist/` (`requirements.txt` includes pyinstaller):
 
 ```powershell
-python -m pip install -r requirements-dev.txt
+python -m pip install -r requirements.txt
 powershell -File tools\package.ps1           # -> dist\Rhythm Fest.exe
 ```
 
