@@ -24,7 +24,7 @@ always plays to the end of the track.
 ![Rhythm Fest gameplay](docs/media/gameplay_thumbnail.png)
 -->
 
-*Gameplay video coming soon.*
+https://github.com/user-attachments/assets/217133ad-4a04-40eb-955b-5044cd2088b7
 
 ---
 
