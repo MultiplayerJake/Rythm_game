@@ -17,11 +17,15 @@ https://github.com/user-attachments/assets/217133ad-4a04-40eb-955b-5044cd2088b7
 
 **No Python or installation required.**
 
-1. On this page, click **Code → Download ZIP**, then unzip the archive.
-2. Open the unzipped folder → **`dist/`** → double-click **`Rhythm Fest.exe`**.
+1. Go to the **[latest release](https://github.com/MultiplayerJake/Rhythm_game/releases/latest)**
+   and download **`Rhythm.Fest.exe`** under *Assets*.
+2. Double-click the downloaded file — done.
 
 > **First run on Windows?** The exe is unsigned, so SmartScreen may show *"Windows protected
 > your computer."* Click **More info → Run anyway**.
+
+> **Note:** the game creates `music_levels/`, `stats.dat` and `settings.json` next to the
+> exe, so keep it in a writable folder (not Program Files).
 
 **No songs are included** (game music isn't redistributed) — but you can play right away:
 
@@ -119,8 +123,12 @@ powershell -File tools\package.ps1           # -> dist\Rhythm Fest.exe
 ```
 
 > **Note:** `tools/package.ps1` copies everything in your local `music_levels/` next to the
-> exe. Those files are **gitignored** — only `dist/Rhythm Fest.exe` is committed, never the
-> songs.
+> exe. Those files are **gitignored** — only the exe itself is committed, never the songs.
+
+After rebuilding, publish the new exe to the GitHub release (replace the old asset):
+
+1. Open the [releases page](https://github.com/MultiplayerJake/Rhythm_game/releases) → edit the latest release.
+2. Delete the old `Rhythm.Fest.exe` asset, upload the new one from `dist/`, and save.
 
 ## Project layout
 

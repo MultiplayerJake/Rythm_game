@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .superpowers/
+docs/superpowers/
 stats.dat
 stats.dat.bak
 settings.json
